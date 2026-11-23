@@ -690,15 +690,25 @@ async function sbLoadVouchers(){
 }
 var VALL=[];
 function vSync(){VOUCHERS.length=0;VALL.forEach(function(v){if(v.on)VOUCHERS.push(v)})}
-function vSel(id,opts,val){return '<select id="'+id+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
-var V_KINDS=[['pct','Diskon persen (%)'],['flat','Potongan rupiah (Rp)'],['ship','Potongan ongkir (Rp)']];
-var V_CHS=[['','Semua pembeli'],['sekolah','Sekolah'],['instansi','Instansi']];
+function vSel(id,opts,val){return '<select id="'+id+'" style="width:100%">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
+var V_KINDS=[['pct','Diskon %'],['flat','Potongan Rp'],['ship','Potongan ongkir']];
+var V_CHS=[['','Semua'],['sekolah','Sekolah'],['instansi','Instansi']];
 function aVouchers(){
+  var fl=function(l,h){return '<div class="fld" style="min-width:110px;flex:1 1 110px"><label>'+l+'</label>'+h+'</div>'};
   var rows=VALL.map(function(v){var p='vr-'+v.code+'-';
-    return '<tr'+(v.on?'':' style="opacity:.6"')+'><td><b>'+esc(v.code)+'</b><br><span class="pill '+(v.on?'ok':'no')+'">'+(v.on?'Tampil':'Disembunyikan')+'</span></td><td>'+vSel(p+'k',V_KINDS,v.kind)+'</td><td><input type="number" min="1" id="'+p+'v" value="'+v.v+'" style="width:100px" aria-label="Nilai"></td><td><input type="number" min="0" id="'+p+'m" value="'+(v.max||'')+'" placeholder="–" style="width:100px" aria-label="Maksimal potongan"></td><td><input type="number" min="0" id="'+p+'n" value="'+(v.min||0)+'" style="width:110px" aria-label="Minimal belanja"></td><td>'+vSel(p+'c',V_CHS,v.ch||'')+'</td><td style="white-space:nowrap"><button class="btn sm" data-vsave="'+esc(v.code)+'">Simpan</button> <button class="btn sm ghost" data-vtog="'+esc(v.code)+'">'+(v.on?'Sembunyikan':'Tampilkan')+'</button> <button class="btn sm ghost" data-vdel="'+esc(v.code)+'" style="color:var(--bad)">Hapus</button></td></tr>'}).join('');
+    return '<div style="border:1px solid var(--line,#dfe3ec);border-radius:12px;padding:12px;margin-bottom:10px'+(v.on?'':';opacity:.65')+'">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font-size:16px">'+esc(v.code)+'</b><span class="pill '+(v.on?'ok':'no')+'">'+(v.on?'Tampil':'Disembunyikan')+'</span></div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">'+
+      fl('Jenis',vSel(p+'k',V_KINDS,v.kind))+
+      fl('Nilai','<input type="number" min="1" id="'+p+'v" value="'+v.v+'">')+
+      fl('Maks. (Rp)','<input type="number" min="0" id="'+p+'m" value="'+(v.max||'')+'" placeholder="–">')+
+      fl('Min. belanja (Rp)','<input type="number" min="0" id="'+p+'n" value="'+(v.min||0)+'">')+
+      fl('Untuk',vSel(p+'c',V_CHS,v.ch||''))+
+      '</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn sm" data-vsave="'+esc(v.code)+'">Simpan</button><button class="btn sm ghost" data-vtog="'+esc(v.code)+'">'+(v.on?'Sembunyikan':'Tampilkan')+'</button><button class="btn sm ghost" data-vdel="'+esc(v.code)+'" style="color:var(--bad)">Hapus</button></div></div>'}).join('');
   return '<section class="blk" style="margin:0"><div class="blkhead"><h2>Voucher</h2></div>'+
    '<p class="note" style="margin:0 0 8px">Nilai = persen (untuk diskon %) atau rupiah. Maksimal hanya untuk diskon persen. Voucher berstatus Tampil muncul di beranda dan bisa diklaim. Sembunyikan untuk menyembunyikan sementara tanpa menghapus.</p>'+
-   '<div class="tbl"><table><thead><tr><th>Kode</th><th>Jenis</th><th>Nilai</th><th>Maks. (Rp)</th><th>Min. belanja (Rp)</th><th>Untuk</th><th>Aksi</th></tr></thead><tbody>'+(rows||'<tr><td colspan="7" class="note">Belum ada voucher.</td></tr>')+'</tbody></table></div>'+
+   (rows||'<p class="note">Belum ada voucher.</p>')+
    '<form id="vForm" class="fbar" novalidate style="margin-top:12px"><div class="fld"><label for="vn-code">Kode baru</label><input id="vn-code" placeholder="MISAL: HEMAT20" maxlength="20" autocapitalize="characters"></div><div class="fld"><label for="vn-k">Jenis</label>'+vSel('vn-k',V_KINDS,'pct')+'</div><div class="fld"><label for="vn-v">Nilai</label><input id="vn-v" type="number" min="1"></div><div class="fld"><label for="vn-m">Maks. (Rp)</label><input id="vn-m" type="number" min="0"></div><div class="fld"><label for="vn-n">Min. belanja (Rp)</label><input id="vn-n" type="number" min="0" value="0"></div><div class="fld"><label for="vn-c">Untuk</label>'+vSel('vn-c',V_CHS,'')+'</div><button class="btn" type="submit">Tambah voucher</button></form></section>';
 }
 function vRead(p){
