@@ -32,6 +32,32 @@ jobs:
           echo '<!doctype html><title>Mandiri Tecno Global</title>' > www/index.html
           echo '{"appId":"id.my.managementpandita.mtg","appName":"Mandiri Tecno Global","webDir":"www","server":{"url":"https://managementpandita.my.id/mandiri-tecno-global/","androidScheme":"https"}}' > capacitor.config.json
           npx cap add android
+
+      - name: Ikon dari logo toko
+        run: |
+          cd app
+          pip install pillow
+          curl -sL https://managementpandita.my.id/mandiri-tecno-global/ -o site.html
+          mkdir assets
+          python3 - <<'PY'
+          import re, base64, io
+          from PIL import Image
+          t = open('site.html', encoding='utf-8').read()
+          m = re.search(r'data:image/jpeg;base64,([A-Za-z0-9+/=]+)', t)
+          im = Image.open(io.BytesIO(base64.b64decode(m.group(1)))).convert('RGBA')
+          S = 1024
+          def canvas(bg, scale):
+              c = Image.new('RGBA', (S, S), bg)
+              w = int(S * scale)
+              h = int(w * im.height / im.width)
+              c.paste(im.resize((w, h), Image.LANCZOS), ((S - w) // 2, (S - h) // 2))
+              return c
+          canvas((255, 255, 255, 255), 0.78).save('assets/icon-only.png')
+          canvas((255, 255, 255, 0), 0.58).save('assets/icon-foreground.png')
+          Image.new('RGBA', (S, S), (255, 255, 255, 255)).save('assets/icon-background.png')
+          PY
+          npm i -D @capacitor/assets
+          npx capacitor-assets generate --android
           npx cap sync android
 
       - name: Build APK
@@ -53,5 +79,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "apk-${{ github.run_number }}" MandiriTecnoGlobal.apk \
+            --repo "${{ github.repository }}" \
             --title "APK Mandiri Tecno Global #${{ github.run_number }}" \
             --notes "Unduh MandiriTecnoGlobal.apk lalu pasang di Android."
