@@ -684,17 +684,20 @@ function vFill(v){
 async function sbLoadVouchers(){
   var r=await sb.from('vouchers').select('*').order('code');
   if(r.error||!r.data)return;
-  VOUCHERS.length=0;
-  r.data.forEach(function(x){VOUCHERS.push(vFill({code:x.code,kind:x.kind,v:x.v,max:x.max||0,min:x.min||0,ch:x.ch||''}))});
+  VALL.length=0;
+  r.data.forEach(function(x){VALL.push(vFill({code:x.code,kind:x.kind,v:x.v,max:x.max||0,min:x.min||0,ch:x.ch||'',on:x.active!==false}))});
+  vSync();
 }
+var VALL=[];
+function vSync(){VOUCHERS.length=0;VALL.forEach(function(v){if(v.on)VOUCHERS.push(v)})}
 function vSel(id,opts,val){return '<select id="'+id+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
 var V_KINDS=[['pct','Diskon persen (%)'],['flat','Potongan rupiah (Rp)'],['ship','Potongan ongkir (Rp)']];
 var V_CHS=[['','Semua pembeli'],['sekolah','Sekolah'],['instansi','Instansi']];
 function aVouchers(){
-  var rows=VOUCHERS.map(function(v){var p='vr-'+v.code+'-';
-    return '<tr><td><b>'+esc(v.code)+'</b></td><td>'+vSel(p+'k',V_KINDS,v.kind)+'</td><td><input type="number" min="1" id="'+p+'v" value="'+v.v+'" style="width:100px" aria-label="Nilai"></td><td><input type="number" min="0" id="'+p+'m" value="'+(v.max||'')+'" placeholder="–" style="width:100px" aria-label="Maksimal potongan"></td><td><input type="number" min="0" id="'+p+'n" value="'+(v.min||0)+'" style="width:110px" aria-label="Minimal belanja"></td><td>'+vSel(p+'c',V_CHS,v.ch||'')+'</td><td style="white-space:nowrap"><button class="btn sm" data-vsave="'+esc(v.code)+'">Simpan</button> <button class="btn sm ghost" data-vdel="'+esc(v.code)+'" style="color:var(--bad)">Hapus</button></td></tr>'}).join('');
+  var rows=VALL.map(function(v){var p='vr-'+v.code+'-';
+    return '<tr'+(v.on?'':' style="opacity:.6"')+'><td><b>'+esc(v.code)+'</b><br><span class="pill '+(v.on?'ok':'no')+'">'+(v.on?'Tampil':'Disembunyikan')+'</span></td><td>'+vSel(p+'k',V_KINDS,v.kind)+'</td><td><input type="number" min="1" id="'+p+'v" value="'+v.v+'" style="width:100px" aria-label="Nilai"></td><td><input type="number" min="0" id="'+p+'m" value="'+(v.max||'')+'" placeholder="–" style="width:100px" aria-label="Maksimal potongan"></td><td><input type="number" min="0" id="'+p+'n" value="'+(v.min||0)+'" style="width:110px" aria-label="Minimal belanja"></td><td>'+vSel(p+'c',V_CHS,v.ch||'')+'</td><td style="white-space:nowrap"><button class="btn sm" data-vsave="'+esc(v.code)+'">Simpan</button> <button class="btn sm ghost" data-vtog="'+esc(v.code)+'">'+(v.on?'Sembunyikan':'Tampilkan')+'</button> <button class="btn sm ghost" data-vdel="'+esc(v.code)+'" style="color:var(--bad)">Hapus</button></td></tr>'}).join('');
   return '<section class="blk" style="margin:0"><div class="blkhead"><h2>Voucher</h2></div>'+
-   '<p class="note" style="margin:0 0 8px">Nilai = persen (untuk diskon %) atau rupiah. Maksimal hanya untuk diskon persen. Voucher tampil di beranda dan bisa diklaim pelanggan.</p>'+
+   '<p class="note" style="margin:0 0 8px">Nilai = persen (untuk diskon %) atau rupiah. Maksimal hanya untuk diskon persen. Voucher berstatus Tampil muncul di beranda dan bisa diklaim. Sembunyikan untuk menyembunyikan sementara tanpa menghapus.</p>'+
    '<div class="tbl"><table><thead><tr><th>Kode</th><th>Jenis</th><th>Nilai</th><th>Maks. (Rp)</th><th>Min. belanja (Rp)</th><th>Untuk</th><th>Aksi</th></tr></thead><tbody>'+(rows||'<tr><td colspan="7" class="note">Belum ada voucher.</td></tr>')+'</tbody></table></div>'+
    '<form id="vForm" class="fbar" novalidate style="margin-top:12px"><div class="fld"><label for="vn-code">Kode baru</label><input id="vn-code" placeholder="MISAL: HEMAT20" maxlength="20" autocapitalize="characters"></div><div class="fld"><label for="vn-k">Jenis</label>'+vSel('vn-k',V_KINDS,'pct')+'</div><div class="fld"><label for="vn-v">Nilai</label><input id="vn-v" type="number" min="1"></div><div class="fld"><label for="vn-m">Maks. (Rp)</label><input id="vn-m" type="number" min="0"></div><div class="fld"><label for="vn-n">Min. belanja (Rp)</label><input id="vn-n" type="number" min="0" value="0"></div><div class="fld"><label for="vn-c">Untuk</label>'+vSel('vn-c',V_CHS,'')+'</div><button class="btn" type="submit">Tambah voucher</button></form></section>';
 }
@@ -709,27 +712,36 @@ function sbSaveVoucher(code){
   var o=vRead('vr-'+code+'-');if(!o)return;
   sb.from('vouchers').update(o).eq('code',code).then(function(r){
     if(r.error){toast('Gagal menyimpan: '+sbErr(r.error));return}
-    var v=VOUCHERS.filter(function(z){return z.code===code})[0];
+    var v=VALL.filter(function(z){return z.code===code})[0];
     if(v){v.kind=o.kind;v.v=o.v;v.max=o.max||0;v.min=o.min;v.ch=o.ch;vFill(v)}
-    render();toast('Voucher '+code+' diperbarui');
+    vSync();render();toast('Voucher '+code+' diperbarui');
   });
 }
 function sbAddVoucher(){
   var code=($('#vn-code').value||'').trim().toUpperCase();
   if(!/^[A-Z0-9]{3,20}$/.test(code)){toast('Kode 3 sampai 20 huruf atau angka, tanpa spasi');return}
-  if(VOUCHERS.some(function(z){return z.code===code})){toast('Kode sudah ada');return}
+  if(VALL.some(function(z){return z.code===code})){toast('Kode sudah ada');return}
   var o=vRead('vn-');if(!o)return;o.code=code;
   sb.from('vouchers').insert(o).then(function(r){
     if(r.error){toast('Gagal menambah: '+sbErr(r.error));return}
-    VOUCHERS.push(vFill({code:code,kind:o.kind,v:o.v,max:o.max||0,min:o.min,ch:o.ch}));
-    render();toast('Voucher '+code+' ditambahkan');
+    VALL.push(vFill({code:code,kind:o.kind,v:o.v,max:o.max||0,min:o.min,ch:o.ch,on:true}));
+    vSync();render();toast('Voucher '+code+' ditambahkan');
   });
 }
 function sbDelVoucher(code){
   sb.from('vouchers').delete().eq('code',code).then(function(r){
     if(r.error){toast('Gagal menghapus: '+sbErr(r.error));return}
-    var i=VOUCHERS.findIndex(function(z){return z.code===code});if(i>-1)VOUCHERS.splice(i,1);
-    render();toast('Voucher '+code+' dihapus');
+    var i=VALL.findIndex(function(z){return z.code===code});if(i>-1)VALL.splice(i,1);
+    vSync();render();toast('Voucher '+code+' dihapus');
+  });
+}
+
+function sbToggleVoucher(code){
+  var v=VALL.filter(function(z){return z.code===code})[0];if(!v)return;
+  var nv=!v.on;
+  sb.from('vouchers').update({active:nv}).eq('code',code).then(function(r){
+    if(r.error){toast('Gagal mengubah: '+sbErr(r.error));return}
+    v.on=nv;vSync();render();toast('Voucher '+code+(nv?' ditampilkan':' disembunyikan'));
   });
 }
 /* ---------- sha256 (sinkron, tanpa dependensi) ---------- */
@@ -1664,6 +1676,7 @@ document.addEventListener('click',function(e){
   if((x=el('data-ost'))){S.of.st=x.dataset.ost;render();return}
   if((x=el('data-odet'))){drawAdminOrder(x.dataset.odet);return}
   if((x=el('data-aact'))){var aa=x.dataset.aact.split('|');adminAct(aa[0],aa[1]);return}
+  if((x=el('data-vtog'))){sbToggleVoucher(x.dataset.vtog);return}
   if((x=el('data-vsave'))){sbSaveVoucher(x.dataset.vsave);return}
   if((x=el('data-vdel'))){var vcd=x.dataset.vdel;
     if(x.dataset.arm!=='1'){x.dataset.arm='1';x.textContent='Yakin hapus?';setTimeout(function(){x.dataset.arm='';x.textContent='Hapus'},4000);return}
