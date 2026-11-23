@@ -497,7 +497,7 @@ function mapProduct(x){
 }
 async function sbLoadProducts(){
   var r=await sb.from('products').select('*').eq('active',true).order('id');
-  if(r.error||!r.data||!r.data.length)return;
+  if(r.error||!r.data)return;
   PRODUCTS.length=0;r.data.forEach(function(x){PRODUCTS.push(mapProduct(x))});
 }
 async function sbLoadSettings(){
@@ -667,6 +667,9 @@ function aSet(){
   var i=h.lastIndexOf('<section class="blk" style="margin:0"><div class="blkhead"><h2>Data</h2>');
   return h.slice(0,i)+'<section class="blk" style="margin:0"><div class="blkhead"><h2>Data</h2></div><p class="note" style="margin:0">Akun, pesanan, dan keuangan tersimpan di Supabase. Kelola atau cadangkan lewat dashboard Supabase.</p></section>';
 }
+
+function sbSaveProductNums(p){if(SB_ON)sb.from('products').update({price:p.price,stock:p.stock}).eq('id',p.id).then(function(r){if(r.error)toast('Gagal menyimpan: '+sbErr(r.error))})}
+function sbDeleteProduct(id){if(SB_ON)sb.from('products').update({active:false}).eq('id',id).then(function(r){if(r.error)toast('Gagal menghapus: '+sbErr(r.error))})}
 /* ---------- sha256 (sinkron, tanpa dependensi) ---------- */
 function sha256(ascii){
   ascii=unescape(encodeURIComponent(ascii));
@@ -1047,9 +1050,9 @@ function vSeller(){
    '<div style="display:flex;gap:18px;flex-wrap:wrap"><label class="tog"><input type="checkbox" id="ak"> Siapkan untuk e-Katalog</label><label class="tog"><input type="checkbox" id="asi"> Siapkan untuk SIPLah</label></div>'+
    '<div><button class="btn" type="submit">Simpan produk</button></div></form></section>'+
    '<section class="blk"><div class="blkhead"><h2>Daftar produk dan kesiapan portal</h2><button class="btn sm ghost" id="copyData">Salin data produk (JSON)</button></div><div class="tbl">'+
-   '<table><thead><tr><th>SKU</th><th>Produk</th><th>Harga</th><th>Stok</th><th>e-Katalog</th><th>SIPLah</th></tr></thead><tbody>'+mine.map(function(p){
-     return '<tr><td>'+p.sku+'</td><td class="wrapc">'+esc(p.name)+'</td><td>'+rp(sale(p,0).now)+'</td><td>'+p.stock+'</td>'+
-     ['k','s'].map(function(k){return '<td><label class="tog"><input type="checkbox" data-sync="'+p.id+'|'+k+'" '+(p.sync[k]!=='no'?'checked':'')+'> '+(p.sync[k]==='ok'?'<span class="pill ok">Tayang</span>':p.sync[k]==='wait'?'<span class="pill wait">Siap sinkron</span>':'<span class="pill no">Belum</span>')+'</label></td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div></section>'+
+   '<table><thead><tr><th>SKU</th><th>Produk</th><th>Harga (Rp)</th><th>Stok</th><th>e-Katalog</th><th>SIPLah</th><th>Aksi</th></tr></thead><tbody>'+mine.map(function(p){
+     return '<tr><td>'+p.sku+'</td><td class="wrapc">'+esc(p.name)+'</td><td><input type="number" min="0" id="pp-'+p.id+'" value="'+p.price+'" style="width:120px" aria-label="Harga"></td><td><input type="number" min="0" id="ps-'+p.id+'" value="'+p.stock+'" style="width:80px" aria-label="Stok"></td>'+
+     ['k','s'].map(function(k){return '<td><label class="tog"><input type="checkbox" data-sync="'+p.id+'|'+k+'" '+(p.sync[k]!=='no'?'checked':'')+'> '+(p.sync[k]==='ok'?'<span class="pill ok">Tayang</span>':p.sync[k]==='wait'?'<span class="pill wait">Siap sinkron</span>':'<span class="pill no">Belum</span>')+'</label></td>'}).join('')+'<td style="white-space:nowrap"><button class="btn sm" data-psave="'+p.id+'">Simpan</button> <button class="btn sm ghost" data-pdel="'+p.id+'" style="color:var(--bad)">Hapus</button></td></tr>'}).join('')+(mine.length?'':'<tr><td colspan="7" class="note">Belum ada produk. Tambahkan lewat formulir di atas.</td></tr>')+'</tbody></table></div></section>'+
    '<section class="blk"><div class="blkhead"><h2>Daftar periksa penyedia</h2></div><ul class="chk">'+
    ['Akun penyedia terdaftar di e-Katalog LKPP','Akun toko terverifikasi di SIPLah','NPWP dan NIB perusahaan aktif','Harga tayang sesuai kontrak katalog','Foto dan spesifikasi produk lengkap','Rekening bank penerima atas nama perusahaan'].map(function(t,i){return '<li><label><input type="checkbox" data-ck="'+i+'"> '+t+'</label></li>'}).join('')+'</ul></section>';
 }
@@ -1599,6 +1602,10 @@ document.addEventListener('click',function(e){
   if((x=el('data-ost'))){S.of.st=x.dataset.ost;render();return}
   if((x=el('data-odet'))){drawAdminOrder(x.dataset.odet);return}
   if((x=el('data-aact'))){var aa=x.dataset.aact.split('|');adminAct(aa[0],aa[1]);return}
+  if((x=el('data-psave'))){var pid=+x.dataset.psave,pp=P(pid);if(pp){var nv=Math.round(+$('#pp-'+pid).value),ns=Math.round(+$('#ps-'+pid).value);if(!(nv>=0)||!(ns>=0)){toast('Harga dan stok harus angka 0 atau lebih');return}pp.price=nv;pp.stock=ns;sbSaveProductNums(pp);render();toast('Produk diperbarui')}return}
+  if((x=el('data-pdel'))){var did=+x.dataset.pdel;
+    if(x.dataset.arm!=='1'){x.dataset.arm='1';x.textContent='Yakin hapus?';setTimeout(function(){x.dataset.arm='';x.textContent='Hapus'},4000);return}
+    sbDeleteProduct(did);PRODUCTS.splice(0,PRODUCTS.length,...PRODUCTS.filter(function(z){return z.id!==did}));render();toast('Produk dihapus');return}
   if((x=el('data-ldel'))){sbDelLedger(x.dataset.ldel);DB.ledger=DB.ledger.filter(function(l){return l.id!==x.dataset.ldel});saveDB();render();toast('Transaksi dihapus');return}
   if((x=el('data-dl'))){x.dataset.dl==='orders'?dl('laporan-transaksi.csv',ordersCsv()):dl('buku-kas.csv',ledgerCsv());return}
   if((x=el('data-cp'))){cp(x.dataset.cp==='orders'?ordersCsv():ledgerCsv());return}
